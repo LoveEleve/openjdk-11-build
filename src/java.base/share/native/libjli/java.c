@@ -230,12 +230,12 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
         jint ergo                               /* unused */
 )
 {
-    int mode = LM_UNKNOWN;
-    char *what = NULL;
-    char *main_class = NULL;
-    int ret;
-    InvocationFunctions ifn;
-    jlong start = 0, end = 0;
+    int mode = LM_UNKNOWN; // 启动的模式：LM_CLASS/LM_JAR/LM_MODULE/LM_SOURCE
+    char *what = NULL; // 要执行的目标(类名/jar文件/模块名)
+    char *main_class = NULL; // 主类名
+    int ret; // 返回值
+    InvocationFunctions ifn; // forcus:该结构体内部包含了3个非常重要的函数指针
+    jlong start = 0, end = 0; //
     char jvmpath[MAXPATHLEN];
     char jrepath[MAXPATHLEN];
     char jvmcfg[MAXPATHLEN];
@@ -245,7 +245,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     _program_name = pname;
     _is_java_args = javaargs;
     _wc_enabled = cpwildcard;
-
+    putenv("_JAVA_LAUNCHER_DEBUG=1"); // 开启调试断言功能
     InitLauncher(javaw);
     DumpState();
     if (JLI_IsTraceLauncher()) {
