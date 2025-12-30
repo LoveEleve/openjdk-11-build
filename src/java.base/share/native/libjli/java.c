@@ -520,6 +520,7 @@ JavaMain(void* _args)
      * This method also correctly handles launching existing JavaFX
      * applications that may or may not have a Main-Class manifest entry.
      */
+    // forcus:加载java的主类
     mainClass = LoadMainClass(env, mode, what);
     CHECK_EXCEPTION_NULL_LEAVE(mainClass);
     /*
@@ -561,6 +562,7 @@ JavaMain(void* _args)
     CHECK_EXCEPTION_NULL_LEAVE(mainID);
 
     /* Invoke main method. */
+    // forcus:调用主类的main方法
     (*env)->CallStaticVoidMethod(env, mainClass, mainID, mainArgs);
 
     /*
