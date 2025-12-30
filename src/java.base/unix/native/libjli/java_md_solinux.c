@@ -157,7 +157,7 @@
  */
 
 /* Store the name of the executable once computed */
-static char *execname = NULL;
+static char *execname = NULL; // 可执行文件的路径：比如 "/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java"
 
 /*
  * execname accessor from other parts of platform dependent logic
@@ -321,29 +321,33 @@ CreateExecutionEnvironment(int *pargc, char ***pargv,
 #endif  /* SETENV_REQUIRED */
 
     /* Compute/set the name of the executable */
-    SetExecname(*pargv);
+    // forcus-1 : 设置可执行程序的命令：保存在全局变量 execname 中 -> 全局变量 execname
+    SetExecname(*pargv); // 在linux上通过读取/proc/self/exe来获取当前可执行文件的绝对路径
 
     /* Check to see if the jvmpath exists */
     /* Find out where the JRE is that we will be using. */
+    // forcus-2 : 设置jrepath ：比如 /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk (并且验证了下面是否存在/lib/libjava.so)
     if (!GetJREPath(jrepath, so_jrepath, JNI_FALSE)) {
         JLI_ReportErrorMessage(JRE_ERROR1);
         exit(2);
     }
+    // forcus-3:拼接jvmcfg的路径
     JLI_Snprintf(jvmcfg, so_jvmcfg, "%s%slib%sjvm.cfg",
             jrepath, FILESEP, FILESEP);
     /* Find the specified JVM type */
+    // forcus-4:解析jvmcfg配置文件
     if (ReadKnownVMs(jvmcfg, JNI_FALSE) < 1) {
         JLI_ReportErrorMessage(CFG_ERROR7);
         exit(1);
     }
 
     jvmpath[0] = '\0';
-    jvmtype = CheckJvmType(pargc, pargv, JNI_FALSE);
+    jvmtype = CheckJvmType(pargc, pargv, JNI_FALSE); // forcus : jvmtye = server
     if (JLI_StrCmp(jvmtype, "ERROR") == 0) {
         JLI_ReportErrorMessage(CFG_ERROR9);
         exit(4);
     }
-
+    // forcus-5: 检查libjvm.so是否存在,并且将libjvm.so的路径保存在jvmpath中(xxx/lib/server/libjvm.so)
     if (!GetJVMPath(jrepath, jvmtype, jvmpath, so_jvmpath)) {
         JLI_ReportErrorMessage(CFG_ERROR8, jvmtype, jvmpath);
         exit(4);
@@ -514,13 +518,20 @@ GetJREPath(char *path, jint pathsize, jboolean speculative)
 {
     char libjava[MAXPATHLEN];
     struct stat s;
-
+    //
+    // forcus-1 : jre目录,回填到传入的path中 ：比如：/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk (xxx/jdk)
     if (GetApplicationHome(path, pathsize)) {
         /* Is JRE co-located with the application? */
+        // forcus-2: 按照约定拼接出动态库的路径 ：比如 /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/libjava.so
         JLI_Snprintf(libjava, sizeof(libjava), "%s/lib/" JAVA_DLL, path);
+        /*
+         * access()是系统调用,用于检查文件的可访问性，F_OK代表只检查文件是否存在(不检查读写的执行权限)
+         *  - 返回0:代表文件存在
+         *  - 返回-1:标识文件不存在或者发生错误
+         */
         if (access(libjava, F_OK) == 0) {
             JLI_TraceLauncher("JRE path is %s\n", path);
-            return JNI_TRUE;
+            return JNI_TRUE; // forcus return
         }
         /* ensure storage for path + /jre + NULL */
         if ((JLI_StrLen(path) + 4  + 1) > (size_t) pathsize) {
@@ -555,7 +566,8 @@ LoadJavaVM(const char *jvmpath, InvocationFunctions *ifn)
     void *libjvm;
 
     JLI_TraceLauncher("JVM path is %s\n", jvmpath);
-
+    // forcus:dlopen("xxx/lib/server/libjvm.so",RTLD_NOW + RTLD_GLOBAL)
+    // forcus:RTLD_NOW + RTLD_GLOBAL(立即解析(立即解析libjvm.so中所有未定义的符号,而不是等到使用时才解析)+全局可见(libjvm.so中的符号全局可见))
     libjvm = dlopen(jvmpath, RTLD_NOW + RTLD_GLOBAL);
     if (libjvm == NULL) {
 #if defined(__solaris__) && defined(__sparc) && !defined(_LP64) /* i.e. 32-bit sparc */
@@ -607,21 +619,21 @@ LoadJavaVM(const char *jvmpath, InvocationFunctions *ifn)
         JLI_ReportErrorMessage(DLL_ERROR2, jvmpath, dlerror());
         return JNI_FALSE;
     }
-
+    // forcus:dlsym(libjvm, "JNI_CreateJavaVM")
     ifn->CreateJavaVM = (CreateJavaVM_t)
         dlsym(libjvm, "JNI_CreateJavaVM");
     if (ifn->CreateJavaVM == NULL) {
         JLI_ReportErrorMessage(DLL_ERROR2, jvmpath, dlerror());
         return JNI_FALSE;
     }
-
+    // forcus:dlsym(libjvm, "JNI_GetDefaultJavaVMInitArgs")
     ifn->GetDefaultJavaVMInitArgs = (GetDefaultJavaVMInitArgs_t)
         dlsym(libjvm, "JNI_GetDefaultJavaVMInitArgs");
     if (ifn->GetDefaultJavaVMInitArgs == NULL) {
         JLI_ReportErrorMessage(DLL_ERROR2, jvmpath, dlerror());
         return JNI_FALSE;
     }
-
+    // forcus:dlsym(libjvm, "JNI_GetCreatedJavaVMs")
     ifn->GetCreatedJavaVMs = (GetCreatedJavaVMs_t)
         dlsym(libjvm, "JNI_GetCreatedJavaVMs");
     if (ifn->GetCreatedJavaVMs == NULL) {
@@ -629,7 +641,7 @@ LoadJavaVM(const char *jvmpath, InvocationFunctions *ifn)
         return JNI_FALSE;
     }
 
-    return JNI_TRUE;
+    return JNI_TRUE; // forcus return
 }
 
 /*
@@ -677,7 +689,7 @@ SetExecname(char **argv)
         int len = readlink(self, buf, PATH_MAX);
         if (len >= 0) {
             buf[len] = '\0';            /* readlink(2) doesn't NUL terminate */
-            exec_path = JLI_StringDup(buf);
+            exec_path = JLI_StringDup(buf); // "/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java"
         }
     }
 #else /* !__solaris__ && !__linux__ */
@@ -739,6 +751,16 @@ void SplashFreeLibrary() {
 /*
  * Signature adapter for pthread_create() or thr_create().
  */
+// forcus:子线程的入口函数,后续jvm启动的源码就从这里开始
+/*
+ * {
+      args.argc = argc;
+      args.argv = argv;
+      args.mode = mode; // CLASS = 1
+      args.what = what; // com.wjcoder.Main
+      args.ifn = *ifn; // 三个函数指针
+ * }
+ */
 static void* ThreadJavaMain(void* args) {
     return (void*)(intptr_t)JavaMain(args);
 }
@@ -750,16 +772,17 @@ int
 CallJavaMainInNewThread(jlong stack_size, void* args) {
     int rslt;
 #ifndef __solaris__
-    pthread_t tid;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    // forcus:设置线程属性
+    pthread_t tid; // 线程id
+    pthread_attr_t attr; // 线程属性
+    pthread_attr_init(&attr); // 初始化线程属性
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); // forcus:设置线程分离属性：默认为 PTHREAD_CREATE_JOINABLE(joinable和detached的区别是什么呢？)
 
     if (stack_size > 0) {
         pthread_attr_setstacksize(&attr, stack_size);
     }
     pthread_attr_setguardsize(&attr, 0); // no pthread guard page on java threads
-
+    // forcus:创建一个子线程来继续启动jvm(args就是入参,也就是 ThreadJavaMain()的入参)
     if (pthread_create(&tid, &attr, ThreadJavaMain, args) == 0) {
         void* tmp;
         pthread_join(tid, &tmp);
@@ -804,11 +827,12 @@ void SetJavaLauncherPlatformProps() {
 }
 
 int
-JVMInit(InvocationFunctions* ifn, jlong threadStackSize,
-        int argc, char **argv,
-        int mode, char *what, int ret)
+JVMInit(InvocationFunctions* ifn, jlong threadStackSize, // libjvm.so中的三个函数地址,线程栈大小(全局变量,由-Xss来指定)
+        int argc, char **argv,  // main入参
+        int mode, char *what, int ret) // 启动模式(CLASS = 1),主类名(com.wjcoder.Main),返回值
 {
     ShowSplashScreen();
+    // forcus
     return ContinueInNewThread(ifn, threadStackSize, argc, argv, mode, what, ret);
 }
 

@@ -81,9 +81,9 @@ typedef jint (JNICALL *GetDefaultJavaVMInitArgs_t)(void *args);
 typedef jint (JNICALL *GetCreatedJavaVMs_t)(JavaVM **vmBuf, jsize bufLen, jsize *nVMs);
 
 typedef struct {
-    CreateJavaVM_t CreateJavaVM;
-    GetDefaultJavaVMInitArgs_t GetDefaultJavaVMInitArgs;
-    GetCreatedJavaVMs_t GetCreatedJavaVMs;
+    CreateJavaVM_t CreateJavaVM; //  JNI_CreateJavaVM
+    GetDefaultJavaVMInitArgs_t GetDefaultJavaVMInitArgs; // JNI_GetDefaultJavaVMInitArgs
+    GetCreatedJavaVMs_t GetCreatedJavaVMs; // JNI_GetCreatedJavaVMs
 } InvocationFunctions;
 
 JNIEXPORT int JNICALL
@@ -230,8 +230,8 @@ int JavaMain(void* args);
 
 enum LaunchMode {               // cf. sun.launcher.LauncherHelper
     LM_UNKNOWN = 0,
-    LM_CLASS,
-    LM_JAR,
+    LM_CLASS, // 1
+    LM_JAR, // 2
     LM_MODULE,
     LM_SOURCE
 };

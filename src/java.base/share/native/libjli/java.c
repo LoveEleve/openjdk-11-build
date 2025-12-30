@@ -96,7 +96,7 @@ static char* splash_jar_entry = NULL;
 /*
  * List of VM options to be specified when the VM is created.
  */
-static JavaVMOption *options;
+static JavaVMOption *options; // 参数数组
 static int numOptions, maxOptions;
 
 /*
@@ -158,12 +158,12 @@ enum vmdesc_flag {
 };
 
 struct vmdesc {
-    char *name;
-    int flag;
+    char *name; // vm的类型(-server)
+    int flag; // 存放vmdesc_flag中的枚举值(VM_KNOWN)
     char *alias;
     char *server_class;
 };
-static struct vmdesc *knownVMs = NULL;
+static struct vmdesc *knownVMs = NULL;  // forcus:用来存放jvm.cfg中的内容
 static int knownVMsCount = 0;
 static int knownVMsLimit = 0;
 
@@ -245,6 +245,9 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     _program_name = pname;
     _is_java_args = javaargs;
     _wc_enabled = cpwildcard;
+
+    // 打印所有的 jargv(编译时预定义参数,通常为空)
+    // 打印所有 argv(命令行参数)
     putenv("_JAVA_LAUNCHER_DEBUG=1"); // 开启调试断言功能
     InitLauncher(javaw);
     DumpState();
@@ -271,8 +274,13 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
      *     the pre 1.9 JRE [ 1.6 thru 1.8 ], it is as if 1.9+ has been
      *     invoked from the command line.
      */
+    // 解析JAR manifest,提取主类名(但是当前是-cp模式,这里暂时不用关注)
     SelectVersion(argc, argv, &main_class);
-
+    /*
+     * forcus:创建执行环境,总体来说就是找到jre,jvm路径,以及解析jvm配置(默认是-server)
+     * jrepath: xxx/jdk/libjava.so
+     * jvmpath: xxx/jdk/lib/libjvm.so
+     */
     CreateExecutionEnvironment(&argc, &argv,
                                jrepath, sizeof(jrepath),
                                jvmpath, sizeof(jvmpath),
@@ -288,7 +296,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     if (JLI_IsTraceLauncher()) {
         start = CounterGet();
     }
-
+    // forcus:加载jvm动态库(总的来说,dlopen("xxx/lib/server/libjvm.so") —> dlsym(xxx){这里就是找到三个函数符号的地址(函数指针),然后填充到ifn结构体中})
     if (!LoadJavaVM(jvmpath, &ifn)) {
         return(6);
     }
@@ -311,6 +319,7 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
         }
     } else {
         /* Set default CLASSPATH */
+        // forcus:默认的CLASSPATH处理（取环境变量值） - 这里是环境变量的CLASSPATH,而在下面解析命令行参数时的classpath是jvm实例的classpath
         char* cpath = getenv("CLASSPATH");
         if (cpath != NULL) {
             SetClassPath(cpath);
@@ -320,6 +329,8 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     /* Parse command line options; if the return value of
      * ParseArguments is false, the program should exit.
      */
+    // forcus:解析命令行参数(比如 -cp,-Xint,....,并且最终保存在 (static JavaVMOption *options;) 数组中)
+    // forcus:在这里先关注两个点：mode(LAUNCHER_MODE,在这里是CLASS = 1) & what(主类名,在这里是com/wjcoder.Main)
     if (!ParseArguments(&argc, &argv, &mode, &what, &ret, jrepath)) {
         return(ret);
     }
@@ -328,16 +339,19 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     if (mode == LM_JAR) {
         SetClassPath(what);     /* Override class path */
     }
-
+    // forcus:设置伪属性
     /* set the -Dsun.java.command pseudo property */
+    //forcus:设置 -Dsun.java.command = com.wjcoder.Main 属性到 options 数组中
     SetJavaCommandLineProp(what, argc, argv);
 
     /* Set the -Dsun.java.launcher pseudo property */
+    // forcus:设置 -Dsun.java.launcher = SUN_STANDARD 属性到 options 数组中
     SetJavaLauncherProp();
 
     /* set the -Dsun.java.launcher.* platform properties */
+    // forcus:设置 -Dsun.java.launcher.pid = xxx ，这里设置的是当前的jvm进程id (通过getpid()来获取)
     SetJavaLauncherPlatformProps();
-
+    // forcus: JVM初始化
     return JVMInit(&ifn, threadStackSize, argc, argv, mode, what, ret);
 }
 /*
@@ -397,7 +411,7 @@ JavaMain(void* _args)
     int mode = args->mode;
     char *what = args->what;
     InvocationFunctions ifn = args->ifn;
-
+    // forcus: JavaVM(JNINativeInterface_)和JNIEnv(JNINativeInterface_)是两个非常重要的结构体
     JavaVM *vm = 0;
     JNIEnv *env = 0;
     jclass mainClass = NULL;
@@ -407,10 +421,11 @@ JavaMain(void* _args)
     int ret = 0;
     jlong start = 0, end = 0;
 
-    RegisterThread();
+    RegisterThread(); // 空
 
     /* Initialize the virtual machine */
     start = CounterGet();
+    // forcus:初始化JVM
     if (!InitializeJVM(&vm, &env, &ifn)) {
         JLI_ReportErrorMessage(JVM_ERROR1);
         exit(1);
@@ -985,6 +1000,7 @@ SetClassPath(const char *s)
                        - 2 /* strlen("%s") */
                        + JLI_StrLen(s));
     sprintf(def, format, s);
+    // forcus:把 classpath 添加到 全局变量 -选项数组 option[] 中 (static JavaVMOption *options; - 数组中的每个元素都是一个JavaVMOption结构体)
     AddOption(def, NULL);
     if (s != orig)
         JLI_MemFree((char *) s);
@@ -1505,11 +1521,11 @@ InitializeJVM(JavaVM **pvm, JNIEnv **penv, InvocationFunctions *ifn)
 {
     JavaVMInitArgs args;
     jint r;
-
+    // forcus:初始化args
     memset(&args, 0, sizeof(args));
     args.version  = JNI_VERSION_1_2;
-    args.nOptions = numOptions;
-    args.options  = options;
+    args.nOptions = numOptions; // 启动器参数个数
+    args.options  = options; // 启动器参数数组(之前设置的)
     args.ignoreUnrecognized = JNI_FALSE;
 
     if (JLI_IsTraceLauncher()) {
@@ -1523,7 +1539,7 @@ InitializeJVM(JavaVM **pvm, JNIEnv **penv, InvocationFunctions *ifn)
             printf("    option[%2d] = '%s'\n",
                    i, args.options[i].optionString);
     }
-
+    // forcus:调用CreateJavaVM - JNI_CreateJavaVM
     r = ifn->CreateJavaVM(pvm, (void **)penv, &args);
     JLI_MemFree(options);
     return r == JNI_OK;
@@ -2079,7 +2095,7 @@ ReadKnownVMs(const char *jvmCfgName, jboolean speculative)
     if (JLI_IsTraceLauncher()) {
         start = CounterGet();
     }
-
+    // forcus:以只读方式打开jvm.cfg
     jvmCfg = fopen(jvmCfgName, "r");
     if (jvmCfg == NULL) {
       if (!speculative) {
@@ -2144,6 +2160,7 @@ ReadKnownVMs(const char *jvmCfgName, jboolean speculative)
 
         JLI_TraceLauncher("jvm.cfg[%d] = ->%s<-\n", cnt, line);
         if (vmType != VM_UNKNOWN) {
+            // forcus:保存到全局变量 knownVMs中
             knownVMs[cnt].name = JLI_StringDup(line);
             knownVMs[cnt].flag = vmType;
             switch (vmType) {
@@ -2167,7 +2184,7 @@ ReadKnownVMs(const char *jvmCfgName, jboolean speculative)
                (long)(jint)Counter2Micros(end-start));
     }
 
-    return cnt;
+    return cnt; // forcus return
 }
 
 
@@ -2339,13 +2356,13 @@ ContinueInNewThread(InvocationFunctions* ifn, jlong threadStackSize,
     { /* Create a new thread to create JVM and invoke main method */
       JavaMainArgs args;
       int rslt;
-
+      // forcus:将传入的参数保存在args结构体中
       args.argc = argc;
       args.argv = argv;
       args.mode = mode;
       args.what = what;
       args.ifn = *ifn;
-
+      // forcus
       rslt = CallJavaMainInNewThread(threadStackSize, (void*)&args);
       /* If the caller has deemed there is an error we
        * simply return that, otherwise we return the value of

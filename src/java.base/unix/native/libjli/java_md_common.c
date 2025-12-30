@@ -48,13 +48,15 @@ char* findLastPathComponent(char *buffer, const char *comp) {
  * truncated resulting buffer will contain "/foo".
  */
 jboolean
-TruncatePath(char *buf)
+TruncatePath(char *buf) // 入参为:/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
 {
+
     // try bin directory, maybe an executable
-    char *p = findLastPathComponent(buf, "/bin/");
+    // forcus-1: 找到最后一个/bin/,然后替换为'\0',相当于截断路径，那么最终返回的就是： xxx/jdk
+    char *p = findLastPathComponent(buf, "/bin/"); // 找到最后一个/bin/
     if (p != NULL) {
         *p = '\0';
-        return JNI_TRUE;
+        return JNI_TRUE; // forcus return
     }
     // try lib directory, maybe a library
     p = findLastPathComponent(buf, "/lib/");
@@ -72,13 +74,16 @@ TruncatePath(char *buf)
 jboolean
 GetApplicationHome(char *buf, jint bufsize)
 {
+    // forcus-1:获取执行文件的路径：/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/bin/java
     const char *execname = GetExecName();
     if (execname != NULL) {
+
         JLI_Snprintf(buf, bufsize, "%s", execname);
         buf[bufsize-1] = '\0';
     } else {
         return JNI_FALSE;
     }
+    // forcus-2: 截断路径
     return TruncatePath(buf);
 }
 
