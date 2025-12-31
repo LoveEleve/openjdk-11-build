@@ -304,7 +304,6 @@ JLI_Launch(int argc, char ** argv,              /* main argc, argv */
     if (JLI_IsTraceLauncher()) {
         end   = CounterGet();
     }
-
     JLI_TraceLauncher("%ld micro seconds to LoadJavaVM\n",
              (long)(jint)Counter2Micros(end-start));
 
@@ -425,7 +424,7 @@ JavaMain(void* _args)
 
     /* Initialize the virtual machine */
     start = CounterGet();
-    // forcus:初始化JVM
+    // forcus:初始化JVM - 等学习完这个方法后,再回来看下面的两个forcus
     if (!InitializeJVM(&vm, &env, &ifn)) {
         JLI_ReportErrorMessage(JVM_ERROR1);
         exit(1);
@@ -529,6 +528,7 @@ JavaMain(void* _args)
      * applications own main class but rather a helper class. To keep things
      * consistent in the UI we need to track and report the application main class.
      */
+    // forcus:调用java主类的main方法
     appClass = GetApplicationClass(env);
     NULL_CHECK_RETURN_VALUE(appClass, -1);
 

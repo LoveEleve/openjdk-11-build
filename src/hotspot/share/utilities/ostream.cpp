@@ -914,11 +914,12 @@ void ttyLocker::break_tty_lock_for_safepoint(intx holder) {
   }
   // (else there was no lock to break)
 }
-
+// forcus:初始化输出流 - 单例对象(defaultStream::instance)
 void ostream_init() {
   if (defaultStream::instance == NULL) {
+      // forcus:这里除了创建defaultStream对象外,还有另外两个很重要的点{1.new()运算符重载 2.内存类型 - 这两点实现内存的精确分配}
     defaultStream::instance = new(ResourceObj::C_HEAP, mtInternal) defaultStream();
-    tty = defaultStream::instance;
+    tty = defaultStream::instance; // 设置到全局变量tty中
 
     // We want to ensure that time stamps in GC logs consider time 0
     // the time when the JVM is initialized, not the first time we ask

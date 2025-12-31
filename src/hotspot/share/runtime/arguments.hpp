@@ -286,9 +286,9 @@ class Arguments : AllStatic {
   static SystemProperty* _system_properties;
 
   // Quick accessor to System properties in the list:
-  static SystemProperty *_sun_boot_library_path;
-  static SystemProperty *_java_library_path;
-  static SystemProperty *_java_home;
+  static SystemProperty *_sun_boot_library_path; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/
+  static SystemProperty *_java_library_path; // $LD_LIBRARY_PATH:/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib
+  static SystemProperty *_java_home; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk
   static SystemProperty *_java_class_path;
   static SystemProperty *_jdk_boot_class_path_append;
   static SystemProperty *_vm_info;
@@ -306,14 +306,14 @@ class Arguments : AllStatic {
   // system boot class path string no longer contains the "prefix"
   // to the boot class path base piece as it did when
   // -Xbootclasspath/p was supported.
-  static PathString *_system_boot_class_path;
+  static PathString *_system_boot_class_path; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/modules/java.base
 
   // Set if a modular java runtime image is present vs. a build with exploded modules
-  static bool _has_jimage;
+  static bool _has_jimage; // false 标识这是展开的模块目录，而不是打包的镜像文件
 
   // temporary: to emit warning if the default ext dirs are not empty.
   // remove this variable when the warning is no longer needed.
-  static char* _ext_dirs;
+  static char* _ext_dirs; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/ext:/usr/java/packages/lib/ext
 
   // java.vendor.url.bug, bug reporting URL for fatal errors.
   static const char* _java_vendor_url_bug;
@@ -323,7 +323,7 @@ class Arguments : AllStatic {
   static const char* _sun_java_launcher;
 
   // sun.java.launcher.pid, private property
-  static int    _sun_java_launcher_pid;
+  static int    _sun_java_launcher_pid; // jvm进程pid
 
   // was this VM created via the -XXaltjvm=<path> option
   static bool   _sun_java_launcher_is_altjvm;

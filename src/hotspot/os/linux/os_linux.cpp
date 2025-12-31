@@ -384,9 +384,11 @@ static bool unsafe_chroot_detected = false;
 static const char *unstable_chroot_error = "/proc file system not found.\n"
                                            "Java may be unstable running multithreaded in a chroot "
                                            "environment on Linux when /proc filesystem is not mounted.";
-
+// forcus : 获取处理器数量、物理内存大小等系统信息
 void os::Linux::initialize_system_info() {
+    //  forcus: 获取系统配置的处理器数 -> _processor_count
     set_processor_count(sysconf(_SC_NPROCESSORS_CONF));
+    // 不可能为单核,skip
     if (processor_count() == 1) {
         pid_t pid = os::Linux::gettid();
         char fname[32];
@@ -398,10 +400,11 @@ void os::Linux::initialize_system_info() {
             fclose(fp);
         }
     }
+    // forcus: 计算物理内存大小 = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE) 「物理内存页大小 * 物理内存页个数」 -> _physical_memory
     _physical_memory = (julong) sysconf(_SC_PHYS_PAGES) * (julong) sysconf(_SC_PAGESIZE);
     assert(processor_count() > 0, "linux error");
 }
-
+//forcus
 void os::init_system_properties_values() {
     // The next steps are taken in the product version:
     //
@@ -435,6 +438,8 @@ void os::init_system_properties_values() {
     //        1: ...
     //        ...
     //        7: The default directories, normally /lib and /usr/lib.
+
+// forcus x86_64属于AMD64, 定义默认的库路径为 "/usr/lib64:/lib64:/lib:/usr/lib"
 #if defined(AMD64) || (defined(_LP64) && defined(SPARC)) || defined(PPC64) || defined(S390)
 #define DEFAULT_LIBPATH "/usr/lib64:/lib64:/lib:/usr/lib"
 #else
@@ -463,29 +468,32 @@ void os::init_system_properties_values() {
 
     // sysclasspath, java_home, dll_dir
     {
+        // forcus-1 ：确定JAVA_HOME
         char *pslash;
-        os::jvm_path(buf, bufsize);
+        // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/server/libjvm.so
+        os::jvm_path(buf, bufsize); // forcus 获取 libjvm.so的完整路径
 
         // Found the full path to libjvm.so.
         // Now cut the path to <java_home>/jre if we can.
         pslash = strrchr(buf, '/');
-        if (pslash != NULL) {
+        if (pslash != NULL) { // forcus 去掉/libjvm.so
             *pslash = '\0';            // Get rid of /libjvm.so.
         }
         pslash = strrchr(buf, '/');
-        if (pslash != NULL) {
+        if (pslash != NULL) { // forcus 去掉/{client|server|hotspot}
             *pslash = '\0';            // Get rid of /{client|server|hotspot}.
         }
         Arguments::set_dll_dir(buf);
 
         if (pslash != NULL) {
             pslash = strrchr(buf, '/');
-            if (pslash != NULL) {
+            if (pslash != NULL) { // forcus:去掉/lib
                 *pslash = '\0';        // Get rid of /lib.
             }
         }
-        Arguments::set_java_home(buf);
-        set_boot_path('/', ':');
+        // forcus /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk
+        Arguments::set_java_home(buf); // forcus 设置java_home -> _java_home
+        set_boot_path('/', ':'); // forcus 设置boot_path -> _boot_path 设置启动类路径
     }
 
     // Where to look for native libraries.
@@ -498,10 +506,13 @@ void os::init_system_properties_values() {
     // However, to prevent the proliferation of improperly built native
     // libraries, the new path component /usr/java/packages is added here.
     // Eventually, all the library path setting will be done here.
+    // forcus 构建库路径
     {
         // Get the user setting of LD_LIBRARY_PATH, and prepended it. It
         // should always exist (until the legacy problem cited above is
         // addressed).
+        // forcus : 库路径组成有3部分： 1. 用户的 LD_LIBRARY_PATH 环境变量(如果存在) -- 2./usr/java/packages/lib（系统扩展目录）-- 3. 默认库路径（根据架构不同）
+        // 默认是没有配置的(该环境变量为null)
         const char *v = ::getenv("LD_LIBRARY_PATH");
         const char *v_colon = ":";
         if (v == NULL) {
@@ -514,12 +525,15 @@ void os::init_system_properties_values() {
                                                           sizeof(SYS_EXT_DIR) + sizeof("/lib/") +
                                                           sizeof(DEFAULT_LIBPATH) + 1,
                                                           mtInternal);
+        // forcus: 最终格式: $LD_LIBRARY_PATH:/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib
         sprintf(ld_library_path, "%s%s" SYS_EXT_DIR "/lib:" DEFAULT_LIBPATH, v, v_colon);
         Arguments::set_library_path(ld_library_path);
         FREE_C_HEAP_ARRAY(char, ld_library_path);
     }
 
     // Extensions directories.
+    // forcus:设置扩展目录(java.ext.dirs) - <JAVA_HOME>/lib/ext -- /usr/java/packages/lib/ext
+    // 最终格式为:/data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/ext:/usr/java/packages/lib/ext
     sprintf(buf, "%s" EXTENSIONS_DIR ":" SYS_EXT_DIR EXTENSIONS_DIR, Arguments::get_java_home());
     Arguments::set_ext_dirs(buf);
 
@@ -5474,24 +5488,26 @@ static void check_pax(void) {
     ::munmap(p, size);
 #endif
 }
-
+// forcus linux上相关系统属性初始化
 // this is called _before_ most of the global arguments have been parsed
 void os::init(void) {
     char dummy;   // used to get a guess on initial stack address
-
+    // forcus 获取内核的每秒时钟滴答数
+    // sysconf() : 系统API，用于获取系统配置信息
     clock_tics_per_sec = sysconf(_SC_CLK_TCK);
-
+    // forcus:初始化随机种子 保存到_rand_seed全局变量中
     init_random(1234567);
-
+    // forcus:获取内核默认的内存页大小 -> _page_size
     Linux::set_page_size(sysconf(_SC_PAGESIZE));
     if (Linux::page_size() == -1) {
         fatal("os_linux.cpp: os::init: sysconf failed (%s)",
               os::strerror(errno));
     }
+    // forcus:将内存页大小添加到 _page_sizes 数组中
     init_page_sizes((size_t) Linux::page_size());
-
+    // forcus:获取处理器数量,物理内存大小等系统信息
     Linux::initialize_system_info();
-
+    // forcus:获取linux内核版本信息
     Linux::initialize_os_info();
 
 #ifdef __GLIBC__

@@ -111,6 +111,7 @@ class AllocatedObj {
 /*
  * Memory types
  */
+// forcus 内存类型(代表分配的是什么类型)
 enum MemoryType {
   // Memory type by sub systems. It occupies lower byte.
   mtJavaHeap,          // Java heap
@@ -356,7 +357,13 @@ extern void resource_free_bytes( char *old, size_t size );
 // use delete to deallocate.
 class ResourceObj ALLOCATION_SUPER_CLASS_SPEC {
  public:
-  enum allocation_type { STACK_OR_EMBEDDED = 0, RESOURCE_AREA, C_HEAP, ARENA, allocation_mask = 0x3 };
+  enum allocation_type {   // forcus:内存分配类型
+      STACK_OR_EMBEDDED = 0,  // 栈或嵌入式(特点:自动释放)
+      RESOURCE_AREA,  // 线程资源区：线程本地内存池, lock free
+      C_HEAP, // C堆(进程堆) - 手动释放
+      ARENA, // 内存池
+      allocation_mask = 0x3  // 操作掩码
+  };
   static void set_allocation_type(address res, allocation_type type) NOT_DEBUG_RETURN;
 #ifdef ASSERT
  private:
@@ -379,7 +386,7 @@ class ResourceObj ALLOCATION_SUPER_CLASS_SPEC {
 #endif // ASSERT
 
  public:
-  void* operator new(size_t size, allocation_type type, MEMFLAGS flags) throw();
+  void* operator new(size_t size, allocation_type type, MEMFLAGS flags) throw(); // forcus 运算符重载
   void* operator new [](size_t size, allocation_type type, MEMFLAGS flags) throw();
   void* operator new(size_t size, const std::nothrow_t&  nothrow_constant,
       allocation_type type, MEMFLAGS flags) throw();

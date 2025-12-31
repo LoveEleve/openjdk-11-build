@@ -3749,7 +3749,7 @@ void Threads::initialize_jsr292_core_classes(TRAPS) {
     initialize_class(vmSymbols::java_lang_invoke_MemberName(), CHECK);
     initialize_class(vmSymbols::java_lang_invoke_MethodHandleNatives(), CHECK);
 }
-
+// forcus:非常长的一个方法,涉及了jvm启动的核心内容
 jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     extern void JDK_Version_init();
 
@@ -3760,24 +3760,30 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
     if (!is_supported_jni_version(args->version)) return JNI_EVERSION;
 
     // Initialize library-based TLS
+    // forcus:核心思想(每个线程都想要调用Thread::currentThread()来返回自己的Thread对象) - 其实就是ThreadLocal
     ThreadLocalStorage::init();
 
     // Initialize the output stream module
+    // forcus:初始化流
     ostream_init();
 
     // Process java launcher properties.
+    // forcus:处理java启动器属性
     Arguments::process_sun_java_launcher_properties(args);
 
     // Initialize the os module
+    // forcus : os(linux)相关的系统环境初始化
     os::init();
 
     MACOS_AARCH64_ONLY(os::current_thread_enable_wx(WXWrite));
 
     // Record VM creation timing statistics
+    // 记录jvm的启动时间
     TraceVmCreationTime create_vm_timer;
     create_vm_timer.start();
 
     // Initialize system properties.
+    // forcus:初始化jvm系统属性
     Arguments::init_system_properties();
 
     // So that JDK version can be used as a discriminator when parsing arguments
@@ -3791,6 +3797,7 @@ jint Threads::create_vm(JavaVMInitArgs *args, bool *canTryAgain) {
 
     // Parse arguments
     // Note: this internally calls os::init_container_support()
+    // forcus 解析参数
     jint parse_result = Arguments::parse(args);
     if (parse_result != JNI_OK) return parse_result;
 

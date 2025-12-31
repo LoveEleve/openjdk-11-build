@@ -81,7 +81,9 @@ Arguments::Mode Arguments::_mode                = _mixed;
 bool   Arguments::_java_compiler                = false;
 bool   Arguments::_xdebug_mode                  = false;
 const char*  Arguments::_java_vendor_url_bug    = NULL;
+// 全局变量 - "-Dsun.java.launcher=" 的值
 const char*  Arguments::_sun_java_launcher      = DEFAULT_JAVA_LAUNCHER;
+// forcus 全局变量 - "-Dsun.java.launcher.pid=" 的值 也就是jvm进程id
 int    Arguments::_sun_java_launcher_pid        = -1;
 bool   Arguments::_sun_java_launcher_is_altjvm  = false;
 
@@ -105,18 +107,18 @@ exit_hook_t      Arguments::_exit_hook          = NULL;
 vfprintf_hook_t  Arguments::_vfprintf_hook      = NULL;
 
 
-SystemProperty *Arguments::_sun_boot_library_path = NULL;
-SystemProperty *Arguments::_java_library_path = NULL;
-SystemProperty *Arguments::_java_home = NULL;
+SystemProperty *Arguments::_sun_boot_library_path = NULL; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/
+SystemProperty *Arguments::_java_library_path = NULL; // $LD_LIBRARY_PATH:/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib
+SystemProperty *Arguments::_java_home = NULL; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk
 SystemProperty *Arguments::_java_class_path = NULL;
 SystemProperty *Arguments::_jdk_boot_class_path_append = NULL;
 SystemProperty *Arguments::_vm_info = NULL;
 
 GrowableArray<ModulePatchPath*> *Arguments::_patch_mod_prefix = NULL;
-PathString *Arguments::_system_boot_class_path = NULL;
+PathString *Arguments::_system_boot_class_path = NULL; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/modules/java.base
 bool Arguments::_has_jimage = false;
 
-char* Arguments::_ext_dirs = NULL;
+char* Arguments::_ext_dirs = NULL; // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/lib/ext:/usr/java/packages/lib/ext
 
 bool PathString::set_value(const char *value) {
   if (_value != NULL) {
@@ -352,11 +354,13 @@ bool Arguments::is_internal_module_property(const char* property) {
 }
 
 // Process java launcher properties.
+// forcus:初始化java启动器参数
 void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
   // See if sun.java.launcher, sun.java.launcher.is_altjvm or
   // sun.java.launcher.pid is defined.
   // Must do this before setting up other system properties,
   // as some of them may depend on launcher type.
+  // 遍历每一个参数：args->nOptions是参数个数
   for (int index = 0; index < args->nOptions; index++) {
     const JavaVMOption* option = args->options + index;
     const char* tail;
@@ -379,28 +383,35 @@ void Arguments::process_sun_java_launcher_properties(JavaVMInitArgs* args) {
 }
 
 // Initialize system properties key and value.
+// forcus: 负责初始化JVM的系统属性
 void Arguments::init_system_properties() {
 
   // Set up _system_boot_class_path which is not a property but
   // relies heavily on argument processing and the jdk.boot.class.path.append
   // property. It is used to store the underlying system boot class path.
+  // forcus : 用于存储系统启动类路径
   _system_boot_class_path = new PathString(NULL);
-
+  // forcus : 添加 只读属性 - JVM规范相关属性
   PropertyList_add(&_system_properties, new SystemProperty("java.vm.specification.name",
                                                            "Java Virtual Machine Specification",  false));
   PropertyList_add(&_system_properties, new SystemProperty("java.vm.version", VM_Version::vm_release(),  false));
   PropertyList_add(&_system_properties, new SystemProperty("java.vm.name", VM_Version::vm_name(),  false));
   PropertyList_add(&_system_properties, new SystemProperty("jdk.debug", VM_Version::jdk_debug_level(),  false));
 
+  // forcus : 添加 可写属性
   // Initialize the vm.info now, but it will need updating after argument parsing.
   _vm_info = new SystemProperty("java.vm.info", VM_Version::vm_info_string(), true);
 
   // Following are JVMTI agent writable properties.
   // Properties values are set to NULL and they are
   // os specific they are initialized in os::init_system_properties_values().
+  // forcus ： 启动库路径
   _sun_boot_library_path = new SystemProperty("sun.boot.library.path", NULL,  true);
+  // forcus: java库路径
   _java_library_path = new SystemProperty("java.library.path", NULL,  true);
+  // forcus: java安装目录
   _java_home =  new SystemProperty("java.home", NULL,  true);
+  // forcus: java类路径
   _java_class_path = new SystemProperty("java.class.path", "",  true);
   // jdk.boot.class.path.append is a non-writeable, internal property.
   // It can only be set by either:
@@ -409,6 +420,7 @@ void Arguments::init_system_properties() {
   _jdk_boot_class_path_append = new SystemProperty("jdk.boot.class.path.append", "", false, true);
 
   // Add to System Property list.
+  // forcus 将这些属性添加到系统属性列表
   PropertyList_add(&_system_properties, _sun_boot_library_path);
   PropertyList_add(&_system_properties, _java_library_path);
   PropertyList_add(&_system_properties, _java_home);
@@ -417,6 +429,7 @@ void Arguments::init_system_properties() {
   PropertyList_add(&_system_properties, _vm_info);
 
   // Set OS specific system properties values
+  // forcus : 调用os相关的初始化函数(linux)
   os::init_system_properties_values();
 }
 

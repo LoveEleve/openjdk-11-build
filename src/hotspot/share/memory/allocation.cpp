@@ -41,11 +41,12 @@ char* AllocateHeap(size_t size,
                    MEMFLAGS flags,
                    const NativeCallStack& stack,
                    AllocFailType alloc_failmode /* = AllocFailStrategy::EXIT_OOM*/) {
+  // forcus:malloc
   char* p = (char*) os::malloc(size, flags, stack);
   if (p == NULL && alloc_failmode == AllocFailStrategy::EXIT_OOM) {
     vm_exit_out_of_memory(size, OOM_MALLOC_ERROR, "AllocateHeap");
   }
-  return p;
+  return p; // forcus:return point
 }
 
 char* AllocateHeap(size_t size,
@@ -114,6 +115,7 @@ void* ResourceObj::operator new(size_t size, allocation_type type, MEMFLAGS flag
   address res = NULL;
   switch (type) {
    case C_HEAP:
+    // forcus:标准库malloc来分配内存,返回内存的地址
     res = (address)AllocateHeap(size, flags, CALLER_PC);
     DEBUG_ONLY(set_allocation_type(res, C_HEAP);)
     break;

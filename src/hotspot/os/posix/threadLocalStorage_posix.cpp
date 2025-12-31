@@ -37,14 +37,22 @@ static bool _initialized = false;
 extern "C" void restore_thread_pointer(void* p) {
   ThreadLocalStorage::set_thread((Thread*) p);
 }
-
+// forcus : ThreadLocal
+/*
+ * 在java中ThreadLocal的构思是怎么样的呢？
+ *  每个线程对象(Thread)都会有一个ThreadLocalMap,专门用来存储各个ThreadLocal(key) + Value
+ *  所以在这里我认为结构应该是这样的：
+ *      ThreadLocal tl = new ThreadLocal(); --> 在这里就是 pthread_key_t _thread_key
+ *      tl.set(currentThread); --> 在这里是：pthread_setspecific(_thread_key, thread_A_ptr);  // 存入 0x100 每个线程存储自己的值
+ *      Thread currentThread = t1.get() --> 在这里是：pthread_getspecific(_thread_key);
+ */
 void ThreadLocalStorage::init() {
   assert(!_initialized, "initializing TLS more than once!");
   int rslt = pthread_key_create(&_thread_key, restore_thread_pointer);
   // If this assert fails we will get a recursive assertion failure
   // and not see the actual error message or get a hs_err file
   assert_status(rslt == 0, rslt, "pthread_key_create");
-  _initialized = true;
+  _initialized = true; // 只能初始化一次
 }
 
 bool ThreadLocalStorage::is_initialized() {

@@ -681,7 +681,7 @@ static bool has_reached_max_malloc_test_peak(size_t alloc_size) {
 void* os::malloc(size_t size, MEMFLAGS flags) {
   return os::malloc(size, flags, CALLER_PC);
 }
-
+// forcus: 除了调用malloc()来分配内存外,还支持 内存跟踪 (JVM的NMT功能)(core)(会为内存追踪预留头部空间) / 安全检查 / 零大小处理 / 测试能力(模拟OOM)
 void* os::malloc(size_t size, MEMFLAGS memflags, const NativeCallStack& stack) {
   NOT_PRODUCT(inc_stat_counter(&num_mallocs, 1));
   NOT_PRODUCT(inc_stat_counter(&alloc_bytes, size));
@@ -721,7 +721,7 @@ void* os::malloc(size_t size, MEMFLAGS memflags, const NativeCallStack& stack) {
   }
 
   u_char* ptr;
-  ptr = (u_char*)::malloc(alloc_size);
+  ptr = (u_char*)::malloc(alloc_size); // forcus - malloc
 
 #ifdef ASSERT
   if (ptr == NULL) {
@@ -1330,14 +1330,16 @@ FILE* os::fopen(const char* path, const char* mode) {
 
   return file;
 }
-
-bool os::set_boot_path(char fileSep, char pathSep) {
+// forcus 负责设置 jvm 的启动类路径(Boot Class Path)，用于定位Java核心类库的位置
+bool os::set_boot_path(char fileSep, char pathSep) { // '/' , ':'
+  // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk (get java_home)
   const char* home = Arguments::get_java_home();
   int home_len = (int)strlen(home);
 
   struct stat st;
 
   // modular image if "modules" jimage exists
+  // modules相关,展示不关注
   char* jimage = format_boot_path("%/lib/" MODULES_IMAGE_NAME, home, home_len, fileSep, pathSep);
   if (jimage == NULL) return false;
   bool has_jimage = (os::stat(jimage, &st) == 0);
@@ -1349,9 +1351,14 @@ bool os::set_boot_path(char fileSep, char pathSep) {
   FREE_C_HEAP_ARRAY(char, jimage);
 
   // check if developer build with exploded modules
+  // forcus 一般都是会走这里,构建java.base模块路径
+  // <JAVA_HOME>/modules/java.base
+  // /data/workspace/openjdk11/openjdk-11/build/linux-x86_64-normal-server-slowdebug/jdk/modules/java.base
   char* base_classes = format_boot_path("%/modules/" JAVA_BASE_NAME, home, home_len, fileSep, pathSep);
   if (base_classes == NULL) return false;
+  // forcus 检查该路径是否存在 一般都是存在的
   if (os::stat(base_classes, &st) == 0) {
+    // forcus 设置到全局变量中
     Arguments::set_sysclasspath(base_classes, false);
     FREE_C_HEAP_ARRAY(char, base_classes);
     return true;

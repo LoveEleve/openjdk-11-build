@@ -3945,9 +3945,9 @@ _JNI_IMPORT_OR_EXPORT_ jint JNICALL JNI_GetDefaultJavaVMInitArgs(void *args_) {
 
 DT_RETURN_MARK_DECL(CreateJavaVM, jint
                     , HOTSPOT_JNI_CREATEJAVAVM_RETURN(_ret_ref));
-
+// forcus:创建JVM
 static jint JNI_CreateJavaVM_inner(JavaVM **vm, void **penv, void *args) {
-  HOTSPOT_JNI_CREATEJAVAVM_ENTRY((void **) vm, penv, args);
+  HOTSPOT_JNI_CREATEJAVAVM_ENTRY((void **) vm, penv, args); // 动态跟踪 dtrace(probe trace)
 
   jint result = JNI_ERR;
   DT_RETURN_MARK(CreateJavaVM, jint, (const jint&)result);
@@ -3979,6 +3979,7 @@ static jint JNI_CreateJavaVM_inner(JavaVM **vm, void **penv, void *args) {
   // on a multiprocessor, and at this stage of initialization the os::is_MP
   // function used to determine this will always return false. Atomic::xchg
   // does not have this problem.
+  // forcus: 使用 vm_created 变量来保证只会创建 jvm 一次
   if (Atomic::xchg(1, &vm_created) == 1) {
     return JNI_EEXIST;   // already created, or create attempt in progress
   }
@@ -4005,7 +4006,7 @@ static jint JNI_CreateJavaVM_inner(JavaVM **vm, void **penv, void *args) {
    * JNI_CreateJavaVM will immediately fail using the above logic.
    */
   bool can_try_again = true;
-
+  // forcus : 创建java虚拟机,核心方法
   result = Threads::create_vm((JavaVMInitArgs*) args, &can_try_again);
   if (result == JNI_OK) {
     JavaThread *thread = JavaThread::current();
@@ -4091,14 +4092,15 @@ static jint JNI_CreateJavaVM_inner(JavaVM **vm, void **penv, void *args) {
   return result;
 
 }
-
+// forcus : 创建JVM
 _JNI_IMPORT_OR_EXPORT_ jint JNICALL JNI_CreateJavaVM(JavaVM **vm, void **penv, void *args) {
   jint result = JNI_ERR;
   // On Windows, let CreateJavaVM run with SEH protection
 #if defined(_WIN32) && !defined(USE_VECTORED_EXCEPTION_HANDLING)
   __try {
 #endif
-    result = JNI_CreateJavaVM_inner(vm, penv, args);
+
+    result = JNI_CreateJavaVM_inner(vm, penv, args); // forcus:继续调用xxx_inner()方法
 #if defined(_WIN32) && !defined(USE_VECTORED_EXCEPTION_HANDLING)
   } __except(topLevelExceptionFilter((_EXCEPTION_POINTERS*)_exception_info())) {
     // Nothing to do.
